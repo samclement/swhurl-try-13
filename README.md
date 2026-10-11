@@ -1,0 +1,26 @@
+# swhurl-try-13
+
+throwaway: team platform T4 subscriber (notifier), delete me
+
+A TypeScript app on the [swhurl platform](https://github.com/samclement/swhurl-platform), made from the [swhurl TypeScript template](https://github.com/samclement/swhurl-app-template-typescript). Every push to `main` is checked, published to `ghcr.io/<owner>/swhurl-try-13` and deployed to staging; production changes through **Promote to production**. What the image must provide, the checks and the dependency updates: the [template's guide](https://github.com/samclement/swhurl-app-template-typescript#readme). What the app needs from the platform: [`swhurl.yaml`](swhurl.yaml).
+
+A background worker with no web address: `src/worker.ts` runs `work()` every `WORK_INTERVAL_MS` (default a minute).
+
+## Callers and calling other apps
+
+`src/platform.ts` holds what the platform gives the app ([calling another app](https://github.com/samclement/swhurl-platform/blob/main/docs/apps.md#calling-another-app)):
+
+- **Calling another app.** Add `calls: [orders]` to `swhurl.yaml` before the app is created (afterwards: `make app-calls` on the platform, or the app page's **Calls** form). Then `await service("orders").fetch("/path")` reaches the same environment's `orders` with this app's token for it; the callee's spans join the same trace.
+
+Locally there are no platform keys or tokens: to call another app, set `SWHURL_SERVICE_<NAME>_URL` to a local stub.
+
+## Local development
+
+```bash
+npm install
+npm run dev                             # the SDK stays off locally (the image turns it on)
+npm run check                           # type-check, as CI does
+npm run build && npm test               # the tests run against the built app
+```
+
+To see telemetry locally, `npm run build`, then `OTEL_TRACES_EXPORTER=console node --import ./dist/instrumentation.js dist/main.js` prints spans (or run an OpenTelemetry collector on `localhost:4318` and drop the variable).
