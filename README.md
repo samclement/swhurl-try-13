@@ -22,7 +22,7 @@ events:
   subscribe: [orders.created]      # <app>.<event>
 ```
 
-Then `await publish("created", data)` and `await subscribe("orders.created", async (event) => { ... })`. An event is a CloudEvents envelope (`event.data` is what was published); a handler runs inside the publisher's trace, and if it throws the event comes back, five tries in all. `src/worker.ts` logs every event it subscribes to: examples to replace. Locally there is no NATS: `publish` returns `null` and `subscribe` never calls back.
+Then `await publish("created", data)` and `await subscribe("orders.created", async (event) => { ... })`. An event is a CloudEvents envelope (`event.data` is what was published); a handler runs inside the publisher's trace, and if it throws the event comes back, five tries in all. `src/worker.ts` logs every event it subscribes to: examples to replace. `subscribe` keeps trying until it is receiving, since a new app can start before NATS knows it. Locally there is no NATS: `publish` returns `null` and `subscribe` never calls back.
 
 ## Without the platform
 
