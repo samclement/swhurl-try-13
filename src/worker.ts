@@ -1,5 +1,6 @@
 import { trace } from "@opentelemetry/api";
 import pino from "pino";
+import { closeEvents, declaredSubscriptions, subscribe } from "./events.js";
 
 // A background worker: no web address. It does one unit of work every WORK_INTERVAL_MS
 // (default a minute); replace work() with the app's job. The platform restarts it if it exits.
@@ -28,9 +29,18 @@ const timer = setInterval(() => void work(), intervalMs);
 void work();
 logger.info({ service: serviceName, interval_ms: intervalMs }, "worker started");
 
+// An example of receiving: log every event this app declared it subscribes to (events.subscribe in
+// swhurl.yaml). Each is handled inside the publisher's trace; throw to receive it again.
+for (const name of declaredSubscriptions()) {
+  subscribe(name, (event) => {
+    logger.info({ event_type: event.type, event_id: event.id, source: event.source,
+      trace_id: trace.getActiveSpan()?.spanContext().traceId ?? null }, "event received");
+  }).catch((error: unknown) => logger.error({ err: error, subscription: name }, "cannot subscribe"));
+}
+
 // Kubernetes sends SIGTERM before stopping the pod.
 process.on("SIGTERM", () => {
   clearInterval(timer);
   logger.info("worker stopping");
-  process.exit(0);
+  void closeEvents().finally(() => process.exit(0));
 });

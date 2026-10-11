@@ -12,6 +12,20 @@ A background worker with no web address: `src/worker.ts` runs `work()` every `WO
 
 - **Calling another app.** Add `calls: [orders]` to `swhurl.yaml` before the app is created (afterwards: `make app-calls` on the platform, or the app page's **Calls** form). Then `await service("orders").fetch("/path")` reaches the same environment's `orders` with this app's token for it; the callee's spans join the same trace.
 
+## Events
+
+`src/events.ts` publishes and receives events on the platform's NATS ([events](https://github.com/samclement/swhurl-platform/blob/main/docs/apps.md#events)). Declare them in `swhurl.yaml` before the app is created (afterwards: `make app-events` on the platform):
+
+```yaml
+events:
+  publish: [created]               # other apps see swhurl-try-13.created
+  subscribe: [orders.created]      # <app>.<event>
+```
+
+Then `await publish("created", data)` and `await subscribe("orders.created", async (event) => { ... })`. An event is a CloudEvents envelope (`event.data` is what was published); a handler runs inside the publisher's trace, and if it throws the event comes back, five tries in all. `src/worker.ts` logs every event it subscribes to: examples to replace. Locally there is no NATS: `publish` returns `null` and `subscribe` never calls back.
+
+## Without the platform
+
 Locally there are no platform keys or tokens: to call another app, set `SWHURL_SERVICE_<NAME>_URL` to a local stub.
 
 ## Local development
