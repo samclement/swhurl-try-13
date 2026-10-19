@@ -1,6 +1,7 @@
 import { trace } from "@opentelemetry/api";
 import pino from "pino";
-import { closeEvents, declaredSubscriptions, subscribe } from "./events.js";
+import { closeEvents, declaredSubscriptions, publish, subscribe } from "./events.js";
+import { flags, watchFlags } from "./flags.js";
 
 // A background worker: no web address. It does one unit of work every WORK_INTERVAL_MS
 // (default a minute); replace work() with the app's job. The platform restarts it if it exits.
@@ -15,7 +16,11 @@ const tracer = trace.getTracer(serviceName);
 async function work(): Promise<void> {
   await tracer.startActiveSpan("work", async (span) => {
     try {
-      logger.info({ trace_id: span.spanContext().traceId }, "work done");
+      // An example of publishing: "worked" is described in asyncapi.yaml, which is what lets other
+      // apps find it and subscribe. Off the platform the payload is still checked, and nothing is sent.
+      await publish("worked", { at: new Date().toISOString() });
+      // An example of a feature flag: shout is declared in swhurl.yaml, on in staging only.
+      logger.info({ trace_id: span.spanContext().traceId }, flags.shout ? "WORK DONE" : "work done");
     } catch (error) {
       logger.error({ err: error }, "work failed");
       span.recordException(error as Error);
@@ -24,6 +29,12 @@ async function work(): Promise<void> {
     }
   });
 }
+
+// Feature flag overrides set from the console (src/flagstore.ts).
+watchFlags({
+  onChange: (flag, value) => logger.info({ flag, value: value ?? null }, value === undefined ? "flag override cleared" : "flag override set"),
+  onProblem: (error) => logger.warn({ err: error }, "flag overrides"),
+});
 
 const timer = setInterval(() => void work(), intervalMs);
 void work();
